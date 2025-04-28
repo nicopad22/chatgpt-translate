@@ -61,7 +61,7 @@ files = os.listdir(root)
 print(f"files found: ")
 ppt_files = []
 for file in files:
-    if file[-5:] == ".pptx":
+    if file[-5:] == ".pptx" and file[-18:] != " [TRANSLATED].pptx":
         print(" - " + file)
         ppt_files.append(file)
 
@@ -80,9 +80,10 @@ for file in ppt_files:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for paragraph in shape.text_frame.paragraphs:
-                    for run in paragraph.runs:
-                        text = run.text
-                        
-                        run.text = translate(text)
+                    text = paragraph.text
+                    paragraph.text = translate(text)
+                    # for run in paragraph.runs:
+                    #     text = run.text
+                    #     run.text = translate(text)
     
     new_ppt.save(root + newfile)
