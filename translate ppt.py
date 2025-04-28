@@ -5,8 +5,7 @@ import os
 
 # VARIABLES
 root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Excel\\BHPF 1\\"
-output_language = "es"
-# output_language = "en"
+output_language = input("output language [es/en]: ")
 
 # OpenAI API client
 # Store there your API key
@@ -68,6 +67,9 @@ for file in files:
 
 for file in ppt_files:
     newfile = file[:-5] + " [TRANSLATED].pptx"
+
+    if newfile in files:
+        continue
 
     t = os.popen(f"copy \"{root + file}\" \"{root + newfile}\"")
 

@@ -5,8 +5,7 @@ import time
 
 # VARIABLES
 root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Excel\\BHPF 1\\"
-output_language = "es"
-# output_language = "en"
+output_language = input("output language [es/en]: ")
 
 # OpenAI API client
 # Store there your API key
@@ -16,6 +15,15 @@ with open(".\\TOKEN.txt") as token_file:
 #
 # --- METHODS ---
 #
+def translate(text):
+    if text.strip() != "":
+        if output_language == "es":
+            return translate_to_spanish(text)
+        elif output_language == "en":
+            return translate_to_english(text)
+    else:
+        return ""
+
 # Function to translate text
 def translate_to_spanish(text):
     result = client.chat.completions.create(
@@ -51,7 +59,7 @@ def translate_to_english(text):
     return translation
 
 # Applies given function to an entire sheet
-def apply_sheet(input_workbook, out_workbook, sheet_name, function):
+def translate_sheet(input_workbook, out_workbook, sheet_name):
     sheet = input_workbook[sheet_name]
     output_sheet = out_workbook[sheet_name]
 
@@ -65,7 +73,7 @@ def apply_sheet(input_workbook, out_workbook, sheet_name, function):
                 if not value.isnumeric() and value.strip() != "" and value[0] != "=":
                     
                     # update cell value
-                    translated_value = function(value)
+                    translated_value = translate(value)
 
                     # update the copied sheet
                     output_sheet.cell(row=row_idx, column=col_idx, value=translated_value)
@@ -93,6 +101,9 @@ for file in excel_files:
     filepath = root + file
     out_filepath = filepath[:-5] + " [TRANSLATED].xlsx"
 
+    if (file[:-5] + " [TRANSLATED].xlsx") in files:
+        continue
+
     # make copy of original excel file to edit (keep formatting)
     os.popen(f"copy \"{filepath}\" \"{out_filepath}\"")
     time.sleep(0.5)
@@ -105,14 +116,8 @@ for file in excel_files:
 
     # Iterate through each sheet
     for sheet_name in workbook.sheetnames:
-
-        if output_language == "es":
-            apply_sheet(workbook, output_workbook, sheet_name, translate_to_spanish)
-            output_workbook[sheet_name].title = translate_to_spanish(sheet_name)
-
-        elif output_language == "en":
-            apply_sheet(workbook, output_workbook, sheet_name, translate_to_english)
-            output_workbook[sheet_name].title = translate_to_english(sheet_name)
+        translate_sheet(workbook, output_workbook, sheet_name)
+        output_workbook[sheet_name].title = translate(sheet_name)
         
     # Save the output workbook
     output_workbook.save(out_filepath)

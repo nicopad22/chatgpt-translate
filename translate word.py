@@ -3,14 +3,23 @@ from docx import Document
 import os
 import time
 
-root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Excel\\BHPF 1\\"
-out_language = "es"
-# out_language = "en"
+root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Word\\deik7\\"
+
+out_language = input("output language [es/en]: ")
 
 # OpenAI API client
 # Store there your API key
 with open(".\\TOKEN.txt") as token_file:
     client = openai.OpenAI(api_key=[line for line in token_file][0])
+    
+def translate(text):
+    if text.strip() != "":
+        if out_language == "es":
+            return translate_to_spanish(text)
+        elif out_language == "en":
+            return translate_to_english(text)
+    else:
+        return ""
     
 # Function to translate text / AI interaction
 def translate_to_spanish(text):
@@ -53,11 +62,7 @@ def translate_to_english(text):
 # Function to rapidly translate all paragraphs, excluding empty lines    
 def translate_paragraphs(element):
     for paragraph in element.paragraphs:
-            if paragraph.text.strip() != "":
-                if out_language == "es":
-                    paragraph.text = translate_to_spanish(paragraph.text)
-                elif out_language == "en":
-                    paragraph.text = translate_to_spanish(paragraph.text)
+            translate(paragraph.text)
 
 # Function to rapidly translate tables, making sure to manage 
 def translate_table(table):
@@ -91,10 +96,14 @@ for file in files:
         print(" - " + file)
 
 for word_file in word_files:
-    print(f"\n\n-------------------------\nTRANSLATING: \"{word_file}\"\n-------------------------\n\n")
 
     # File paths
     word_output = word_file[:-5] + ' [TRANSLATED].docx'
+
+    if word_output in files:
+        continue
+    
+    print(f"\n\n-------------------------\nTRANSLATING: \"{word_file}\"\n-------------------------\n\n")
 
     # make copy of original excel file to edit (keep formatting)
     os.popen(f"copy \"{root + word_file}\" \"{root + word_output}\"")
