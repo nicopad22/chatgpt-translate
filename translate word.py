@@ -1,0 +1,129 @@
+import openai
+from docx import Document
+import os
+import time
+
+root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Excel\\BHPF 1\\"
+out_language = "es"
+# out_language = "en"
+
+# OpenAI API client
+# Store there your API key
+with open(".\\TOKEN.txt") as token_file:
+    client = openai.OpenAI(api_key=[line for line in token_file][0])
+    
+# Function to translate text / AI interaction
+def translate_to_spanish(text):
+    translation = text.replace(text.strip(), "x")
+
+    result = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+                {"role": "system",
+                 "content": "Eres un asistente de traducción. Traduces cualquier texto que recibas al español, sin realizar comentarios adicionales."},
+                {"role": "user", "content": f"{text.strip()}"}
+            ],
+        temperature=0.7,
+    )
+
+    translation = translation.replace("x", result.choices[0].message.content)
+
+    print(text + " / " + translation)
+    return translation
+
+# Function to translate text / AI interaction
+def translate_to_english(text):
+    translation = text.replace(text.strip(), "x")
+
+    result = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+                {"role": "system",
+                 "content": "You are a translation assistant. You translate any text you recieve into english, without making any comments."},
+                {"role": "user", "content": f"{text.strip()}"}
+            ],
+        temperature=0.7,
+    )
+
+    translation = translation.replace("x", result.choices[0].message.content)
+
+    print(text + " / " + translation)
+    return translation
+
+# Function to rapidly translate all paragraphs, excluding empty lines    
+def translate_paragraphs(element):
+    for paragraph in element.paragraphs:
+            if paragraph.text.strip() != "":
+                if out_language == "es":
+                    paragraph.text = translate_to_spanish(paragraph.text)
+                elif out_language == "en":
+                    paragraph.text = translate_to_spanish(paragraph.text)
+
+# Function to rapidly translate tables, making sure to manage 
+def translate_table(table):
+    last_cell = ""
+    for row in table.rows:
+        for cell in row.cells:
+            # make sure to skip merged cells, so AI doesnt reply to questions in english posed by itself.
+            if cell.text != last_cell:
+                translate_paragraphs(cell)
+                # update last cell's translation
+                last_cell = cell.text
+
+            for table in cell.tables:
+                translate_table(table)
+
+# Function to couple the translation of paragraphs and tables all in one (useful to repeat in many sections, headers, footers, etc)
+def translate_all(section):
+    translate_paragraphs(section)
+    for table in section.tables:
+        translate_table(table)
+
+# count the number of translated documents
+counter = 0
+
+files = os.listdir(root)
+word_files = []
+print(f" {len(files)} files found: ")
+for file in files:
+    if file[-5:] == ".docx" and file[-18:] != ' [TRANSLATED].docx':
+        word_files.append(file)
+        print(" - " + file)
+
+for word_file in word_files:
+    print(f"\n\n-------------------------\nTRANSLATING: \"{word_file}\"\n-------------------------\n\n")
+
+    # File paths
+    word_output = word_file[:-5] + ' [TRANSLATED].docx'
+
+    # make copy of original excel file to edit (keep formatting)
+    os.popen(f"copy \"{root + word_file}\" \"{root + word_output}\"")
+    time.sleep(0.4)
+    # Initiate document objects
+    original_document = Document(root + word_file)
+    new_document = Document(root + word_output)
+
+    # translate document paragraphs and tables
+    translate_all(new_document)
+
+    # translate document headers and footers
+    for section in new_document.sections:
+        
+        # check for specific case of different first-page footer.
+        if section.different_first_page_header_footer:
+            translate_all(section.first_page_header)
+            translate_all(section.first_page_footer)
+        
+        # check for specific case of different even-page footer.
+        if new_document.settings.odd_and_even_pages_header_footer:
+            translate_all(section.even_page_header)
+            translate_all(section.even_page_footer)
+
+        translate_all(section.header)
+        translate_all(section.footer)
+
+    # SAVE DOCUMENT WITH NEW NAME
+    new_document.save(root + word_output)
+    counter += 1
+
+print(f"-------------------------------------------------------\n\nDONE!\n\nTranslated a total of {counter} word files in the \"{root}\" directory.\n")
