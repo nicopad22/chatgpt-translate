@@ -1,6 +1,11 @@
 # TODO:
-- Translate pdf files
-- Integrate into file explorer
+- [ ] Translate pdf files
+- [ ] Unify functionality into a main file
+- [ ] Integrate into file explorer
+- [ ] Possible interface
+- [x] Translate word files
+- [x] Translate excel files
+- [x] Translate powerpoint files
 
 # Initial commit
 I've started working on this to help my mom with translations, using chatGPT to create more fluent and context-aware translations from english to spanish and otherwise. Of course, other languages could be added in the future.
