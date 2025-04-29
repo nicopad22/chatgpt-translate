@@ -1,0 +1,100 @@
+from pptx import Presentation
+import openai
+import os
+import time
+
+# List out all files in folder, filter out != .xlsx
+def main():
+    root = "C:\\Users\\nicol\\Downloads\\CHATGPT-TRANSLATE\\Word\\deik7\\"
+    output_language = input("output language [es/en]: ")
+
+    # OpenAI API client
+    # Store there your API key
+    with open(".\\TOKEN.txt") as token_file:
+        client = openai.OpenAI(api_key=[line for line in token_file][0])
+
+    # general translation function
+    def translate(text, output_language):
+        if text.strip() != "":
+            if output_language == "es":
+                return translate_to_spanish(text)
+            elif output_language == "en":
+                return translate_to_english(text)
+        else:
+            return ""
+
+    # Function to translate text
+    def translate_to_spanish(text):
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                    {"role": "system",
+                    "content": "Eres un asistente de traducción. Traduces cualquier texto que recibas al español, sin realizar comentarios adicionales."},
+                    {"role": "user", "content": f"{text.strip()}"}
+                ],
+            temperature=0.7,
+        )
+
+        translation = result.choices[0].message.content
+        print(text + " / " + translation)
+
+        return translation
+
+    # Function to translate text
+    def translate_to_english(text):
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                    {"role": "system",
+                    "content": "You are a translation assistant. You translate any text into english, without making any comments even if it is not translatable."},
+                    {"role": "user", "content": f"{text.strip()}"}
+                ],
+            temperature=0.7,
+        )
+
+        translation = result.choices[0].message.content
+        print(text + " / " + translation)
+
+        return translation
+
+    files = os.listdir(root)
+    print(f"files found: ")
+    ppt_files = []
+    for file in files:
+        if file[-5:] == ".pptx" and file[-18:] != " [TRANSLATED].pptx":
+            print(" - " + file)
+            ppt_files.append(file)
+
+    for file in ppt_files:
+        newfile = file[:-5] + " [TRANSLATED].pptx"
+
+        if newfile in files:
+            continue
+
+        t = os.popen(f"copy \"{root + file}\" \"{root + newfile}\"")
+        time.sleep(0.4)
+
+        new_ppt = Presentation(root + newfile)
+
+        for slide in new_ppt.slides:
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for paragraph in shape.text_frame.paragraphs:
+                        text = paragraph.text
+                        paragraph.text = translate(text)
+        
+        new_ppt.save(root + newfile)
+
+def translate_ppt(root, file, outfile, translator):
+    new_ppt = Presentation(root + outfile)
+
+    for slide in new_ppt.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    text = paragraph.text
+                    paragraph.text = translator(text)
+    new_ppt.save(root + outfile)
+
+if __name__ == "__main__":
+    main()
