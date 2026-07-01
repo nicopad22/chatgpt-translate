@@ -246,6 +246,10 @@ async function startTranslation() {
     resultsSection.hidden = true;
     currentFileEl.textContent = '';
     progressText.textContent = '';
+    var progressBarFill = document.getElementById('progress-bar-fill');
+    var progressWords = document.getElementById('progress-words');
+    if (progressBarFill) progressBarFill.style.width = '0%';
+    if (progressWords) progressWords.textContent = 'Calculando palabras...';
 
     // Start polling
     pollStatus(currentJobId);
@@ -284,8 +288,37 @@ function pollStatus(jobId) {
         progressText.textContent = data.files_done + ' de ' + data.files_total + ' archivos';
       }
 
+      var progressBarFill = document.getElementById('progress-bar-fill');
+      var progressWords = document.getElementById('progress-words');
+
+      if (data.words_total != null && data.words_total > 0) {
+        var wordsTrans = data.words_translated || 0;
+        var pct = Math.round((wordsTrans / data.words_total) * 100);
+        pct = Math.min(99, Math.max(0, pct)); // clamp to 99% during translation
+        
+        if (progressBarFill) {
+          progressBarFill.style.width = pct + '%';
+        }
+        if (progressWords) {
+          progressWords.textContent = 'Progreso: ' + pct + '% (' + formatNumber(wordsTrans) + ' de ' + formatNumber(data.words_total) + ' palabras)';
+        }
+      } else {
+        if (progressBarFill) {
+          progressBarFill.style.width = '0%';
+        }
+        if (progressWords) {
+          progressWords.textContent = 'Calculando palabras...';
+        }
+      }
+
       // Check completion
       if (data.status === 'listo') {
+        if (progressBarFill) {
+          progressBarFill.style.width = '100%';
+        }
+        if (progressWords) {
+          progressWords.textContent = 'Progreso: 100% (' + formatNumber(data.words_total || 0) + ' de ' + formatNumber(data.words_total || 0) + ' palabras)';
+        }
         clearInterval(pollInterval);
         showResults(data);
       } else if (data.status === 'error') {
@@ -368,6 +401,11 @@ function goBackToUpload() {
   renderFileList();
   translateBtn.disabled = true;
   uploadError.hidden = true;
+
+  var progressBarFill = document.getElementById('progress-bar-fill');
+  var progressWords = document.getElementById('progress-words');
+  if (progressBarFill) progressBarFill.style.width = '0%';
+  if (progressWords) progressWords.textContent = '';
 
   // Reset results section to original structure
   resultsSection.innerHTML =

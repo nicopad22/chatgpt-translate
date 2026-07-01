@@ -53,6 +53,44 @@ def translate_word(root, file, outfile, translator):
     # SAVE DOCUMENT WITH NEW NAME
     new_document.save(root + outfile)
 
+def _count_paragraphs(element):
+    words = 0
+    for paragraph in element.paragraphs:
+        words += len(paragraph.text.split())
+    return words
+
+def _count_table(table):
+    words = 0
+    last_cell = ""
+    for row in table.rows:
+        for cell in row.cells:
+            if cell.text != last_cell:
+                words += _count_paragraphs(cell)
+                last_cell = cell.text
+            for nested_table in cell.tables:
+                words += _count_table(nested_table)
+    return words
+
+def _count_all(section):
+    words = _count_paragraphs(section)
+    for table in section.tables:
+        words += _count_table(table)
+    return words
+
+def get_word_word_count(filepath):
+    doc = Document(filepath)
+    words = _count_all(doc)
+    for section in doc.sections:
+        if section.different_first_page_header_footer:
+            words += _count_all(section.first_page_header)
+            words += _count_all(section.first_page_footer)
+        if doc.settings.odd_and_even_pages_header_footer:
+            words += _count_all(section.even_page_header)
+            words += _count_all(section.even_page_footer)
+        words += _count_all(section.header)
+        words += _count_all(section.footer)
+    return words
+
 # main function
 def main():
 

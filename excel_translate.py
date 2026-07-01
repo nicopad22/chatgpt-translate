@@ -42,6 +42,19 @@ def translate_excel(root, file, outfile, translator):
     # Save the output workbook
     output_workbook.save(root + outfile)
 
+def get_excel_word_count(filepath):
+    workbook = openpyxl.load_workbook(filepath, data_only=True)
+    words = 0
+    for sheet_name in workbook.sheetnames:
+        words += len(sheet_name.split())
+        sheet = workbook[sheet_name]
+        for row in sheet.iter_rows(values_only=True):
+            for val in row:
+                if isinstance(val, str):
+                    if not val.isnumeric() and val.strip() != "" and val[0] != "=":
+                        words += len(val.split())
+    return words
+
 def main():
 
     # VARIABLES

@@ -39,20 +39,19 @@ log = logging.getLogger("translate-api")
 # ---------------------------------------------------------------------------
 app = FastAPI()
 
+# Parse comma-separated origins, or fallback to wildcard
+origins = [o.strip() for o in CORS_ORIGIN.split(",")] if CORS_ORIGIN else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CORS_ORIGIN] if CORS_ORIGIN != "*" else ["*"],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=True if "*" not in origins else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 gcs = storage.Client()
 bucket = gcs.bucket(GCS_BUCKET)
-
-# ponytail: in-memory job cache. GCS status.json is the source of truth.
-# If the instance restarts, the next poll re-reads from GCS.
-_jobs: dict[str, dict] = {}
 
 ALLOWED_EXT = {".docx", ".xlsx", ".pptx"}
 CONTENT_TYPES = {
@@ -101,8 +100,15 @@ def _current_user(request: Request) -> str:
 # GCS helpers
 # ---------------------------------------------------------------------------
 def _save_status(job_id: str, status: dict):
-    blob = bucket.blob(f"jobs/{job_id}/status.json")
-    blob.upload_from_string(json.dumps(status), content_type="application/json")
+    # Serialize to string synchronously to prevent dict mutation issues in the background thread
+    status_str = json.dumps(status)
+    def upload():
+        try:
+            blob = bucket.blob(f"jobs/{job_id}/status.json")
+            blob.upload_from_string(status_str, content_type="application/json")
+        except Exception as e:
+            log.error(f"Error saving status to GCS: {e}")
+    threading.Thread(target=upload, daemon=True).start()
 
 
 def _load_status(job_id: str) -> dict | None:
@@ -167,9 +173,10 @@ async def create_job(
         "current_file": "",
         "files_done": 0,
         "files_total": len(file_infos),
+        "words_translated": 0,
+        "words_total": 0,
     }
     _save_status(job_id, status)
-    _jobs[job_id] = status
 
     t = threading.Thread(
         target=_translate_job, args=(job_id, file_infos, language, user), daemon=True
@@ -181,8 +188,6 @@ async def create_job(
 
 @app.get("/jobs/{job_id}")
 async def get_job(job_id: str, user: str = Depends(_current_user)):
-    if job_id in _jobs:
-        return _jobs[job_id]
     status = _load_status(job_id)
     if not status:
         raise HTTPException(404, "Trabajo no encontrado")
@@ -214,6 +219,8 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
     root = tmp_dir + "/"
 
     total_words = 0
+    words_translated = 0
+    words_total = 0
     translated_files = []
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
@@ -225,10 +232,38 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
         "without making any comments even if it is not translatable."
     )
 
+    # Initialize the local status dictionary
+    status = {
+        "status": "procesando",
+        "language": language,
+        "username": username,
+        "files": [fi["name"] for fi in file_infos],
+        "translated_files": [],
+        "word_count": 0,
+        "cost_clp": 0,
+        "current_file": "",
+        "files_done": 0,
+        "files_total": len(file_infos),
+        "words_translated": 0,
+        "words_total": 0,
+    }
+
+    last_gcs_save = time.time()
+
     def translator(text):
-        nonlocal total_words
+        nonlocal total_words, words_translated, last_gcs_save
         if not text.strip():
             return ""
+
+        input_words = len(text.strip().split())
+        words_translated += input_words
+        status["words_translated"] = words_translated
+
+        current_time = time.time()
+        if current_time - last_gcs_save > 5:
+            _save_status(job_id, status)
+            last_gcs_save = current_time
+
         # ponytail: single retry on transient failures. Ceiling: gives up
         # after 2 attempts. Upgrade path: exponential backoff / queue.
         last_err = None
@@ -252,20 +287,33 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
         raise last_err
 
     try:
+        # 1. Download all files to tmp_dir and pre-calculate words_total
+        for fi in file_infos:
+            name, ext = fi["name"], fi["ext"]
+            in_path = os.path.join(tmp_dir, name)
+            try:
+                bucket.blob(f"jobs/{job_id}/input/{name}").download_to_filename(in_path)
+                if ext == ".docx":
+                    words_total += docx_mod.get_word_word_count(in_path)
+                elif ext == ".xlsx":
+                    words_total += xlsx_mod.get_excel_word_count(in_path)
+                elif ext == ".pptx":
+                    words_total += pptx_mod.get_ppt_word_count(in_path)
+            except Exception as ex:
+                log.error(f"Error downloading or counting words for {name}: {ex}", exc_info=True)
+
+        status["words_total"] = words_total
+        _save_status(job_id, status)
+
+        # 2. Iterate and translate files (they are already downloaded)
         for i, fi in enumerate(file_infos):
             name, ext = fi["name"], fi["ext"]
-
-            # Update progress
-            _jobs[job_id] = {
-                **_jobs.get(job_id, {}),
-                "current_file": name,
-                "files_done": i,
-            }
-            _save_status(job_id, _jobs[job_id])
-
-            # Download from GCS to tmp
             in_path = os.path.join(tmp_dir, name)
-            bucket.blob(f"jobs/{job_id}/input/{name}").download_to_filename(in_path)
+
+            # Update progress metadata
+            status["current_file"] = name
+            status["files_done"] = i
+            _save_status(job_id, status)
 
             # Create output copy (preserves formatting)
             out_name = os.path.splitext(name)[0] + " [TRADUCIDO]" + ext
@@ -299,9 +347,10 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
             "files_done": len(file_infos),
             "files_total": len(file_infos),
             "current_file": "",
+            "words_translated": words_total,
+            "words_total": words_total,
         }
         _save_status(job_id, final)
-        _jobs[job_id] = final
 
         log.info(
             "[TRADUCCIÓN] usuario: %s | archivos: %d | idioma: %s | "
@@ -314,9 +363,9 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
         )
 
     except Exception as e:
-        err = {**_jobs.get(job_id, {}), "status": "error", "error": str(e)}
-        _save_status(job_id, err)
-        _jobs[job_id] = err
+        status["status"] = "error"
+        status["error"] = str(e)
+        _save_status(job_id, status)
         log.error("[ERROR] job %s: %s", job_id, e, exc_info=True)
 
     finally:

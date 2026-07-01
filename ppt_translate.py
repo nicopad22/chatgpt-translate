@@ -96,5 +96,15 @@ def translate_ppt(root, file, outfile, translator):
                     paragraph.text = translator(text)
     new_ppt.save(root + outfile)
 
+def get_ppt_word_count(filepath):
+    ppt = Presentation(filepath)
+    words = 0
+    for slide in ppt.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    words += len(paragraph.text.split())
+    return words
+
 if __name__ == "__main__":
     main()
