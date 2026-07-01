@@ -2,6 +2,17 @@ import openai
 import openpyxl
 import os
 import time
+import mimetypes
+from PIL import JpegImagePlugin
+
+# Fixes for openpyxl KeyError on slim Docker containers with camera-specific images (.mpo)
+# 1. Force Pillow to treat multi-picture objects (MPO) as standard JPEGs
+JpegImagePlugin._getmp = lambda x: None
+
+# 2. Register .mpo extension in both strict and non-strict mime-type dictionaries
+mimetypes.init()
+mimetypes.add_type("image/jpeg", ".mpo", strict=True)
+mimetypes.add_type("image/jpeg", ".mpo", strict=False)
 
 # Applies given function to an entire sheet
 def translate_sheet(input_workbook, out_workbook, sheet_name, translator):
