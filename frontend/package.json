@@ -1,0 +1,24 @@
+{
+  "name": "chatgpt-translate",
+  "version": "1.0.0",
+  "description": "Translates files in a simple interface connecting to google cloud run instance",
+  "homepage": "https://github.com/nicopad22/chatgpt-translate#readme",
+  "bugs": {
+    "url": "https://github.com/nicopad22/chatgpt-translate/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicopad22/chatgpt-translate.git"
+  },
+  "license": "ISC",
+  "author": "nicopad22",
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "vite": "^8.1.2"
+  }
+}

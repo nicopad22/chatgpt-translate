@@ -1,5 +1,5 @@
 // ===== Config =====
-const API_URL = ''; // Set after first Cloud Run deploy
+const API_URL = 'https://translate-api-351640193452.us-central1.run.app'; // Set after first Cloud Run deploy
 
 // ===== State =====
 var token = localStorage.getItem('token') || '';
