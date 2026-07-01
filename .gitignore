@@ -3,3 +3,4 @@ __pycache__/
 .env
 .vercel/
 node_modules/
+word_translate_xml.py
