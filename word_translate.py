@@ -80,7 +80,7 @@ def main():
         translation = text.replace(text.strip(), "x")
 
         result = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                     {"role": "system",
                     "content": "Eres un asistente de traducción. Traduces cualquier texto que recibas al español, sin realizar comentarios adicionales."},
@@ -99,7 +99,7 @@ def main():
         translation = text.replace(text.strip(), "x")
 
         result = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                     {"role": "system",
                     "content": "You are a translation assistant. You translate any text you recieve into english, without making any comments."},

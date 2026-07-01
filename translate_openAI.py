@@ -30,7 +30,7 @@ def translate(text):
 
 def translate_to_spanish(text):
     result = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
                 {"role": "system",
                  "content": "Eres un asistente de traducción. Traduces cualquier texto que recibas al español, sin realizar comentarios adicionales."},
@@ -43,7 +43,7 @@ def translate_to_spanish(text):
 
 def translate_to_english(text):
     result = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
                 {"role": "system",
                  "content": "You are a translation assistant. You translate any text into english, without making any comments even if it is not translatable."},

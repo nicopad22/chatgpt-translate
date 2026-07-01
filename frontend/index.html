@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traductor de Documentos</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen">
+    <div class="container">
+      <div class="card login-card">
+        <h1>📄 Traductor de Documentos</h1>
+        <p class="subtitle">Traducción automática de documentos</p>
+        <form id="login-form" onsubmit="return false;">
+          <label for="username-input">Nombre de usuario</label>
+          <input type="text" id="username-input" autocomplete="username" required>
+          <label for="password-input">Contraseña</label>
+          <input type="password" id="password-input" autocomplete="current-password" required>
+          <button type="submit" id="login-btn">Entrar</button>
+        </form>
+        <div id="login-error" class="error-msg" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Screen -->
+  <div id="upload-screen" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-left">📄 Traductor</div>
+      <div class="topbar-right">
+        <span id="header-username"></span>
+        <button id="logout-btn" class="btn-link">Salir</button>
+      </div>
+    </header>
+    <div class="container">
+      <div class="card">
+        <div id="drop-zone">
+          <div class="drop-icon">⬆️</div>
+          <p class="drop-main">Arrastra tus documentos aquí</p>
+          <p class="drop-sub">o haz clic para seleccionar archivos</p>
+          <input type="file" id="file-input" multiple accept=".docx,.xlsx,.pptx" hidden>
+        </div>
+
+        <div id="file-list"></div>
+
+        <div class="formats-row">
+          <span class="format-ok">.docx ✓</span>
+          <span class="format-ok">.xlsx ✓</span>
+          <span class="format-ok">.pptx ✓</span>
+          <span class="format-disabled">.pdf — próximamente</span>
+        </div>
+
+        <div class="options-row">
+          <label for="language-select">Traducir a:</label>
+          <select id="language-select">
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <button id="translate-btn" disabled>Traducir</button>
+        <div id="upload-error" class="error-msg" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Screen -->
+  <div id="results-screen" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-left">📄 Traductor</div>
+      <div class="topbar-right">
+        <span id="header-username-2"></span>
+        <button id="logout-btn-2" class="btn-link">Salir</button>
+      </div>
+    </header>
+    <div class="container">
+      <div class="card">
+        <div id="progress-section">
+          <div class="spinner"></div>
+          <p class="progress-title">Traduciendo...</p>
+          <p id="current-file" class="secondary"></p>
+          <p id="progress-text" class="secondary"></p>
+        </div>
+
+        <div id="results-section" hidden>
+          <h2>Archivos traducidos</h2>
+          <div id="download-list"></div>
+          <div id="stats-box" class="stats-box"></div>
+          <button id="new-translation-btn">Nueva traducción</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

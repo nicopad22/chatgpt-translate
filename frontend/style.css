@@ -1,0 +1,361 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+}
+
+/* ===== Layout ===== */
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.screen {
+  min-height: 100vh;
+}
+
+/* ===== Top Bar ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #0f1a30;
+  border-bottom: 1px solid #1e2d4a;
+}
+
+.topbar-left {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #e94560;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.btn-link:hover {
+  background: rgba(233, 69, 96, 0.1);
+}
+
+/* ===== Card ===== */
+.card {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 32px 28px;
+}
+
+.login-card {
+  margin-top: 15vh;
+  text-align: center;
+}
+
+.login-card h1 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: #999;
+  margin-bottom: 28px;
+  font-size: 0.95rem;
+}
+
+/* ===== Forms & Inputs ===== */
+label {
+  display: block;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 14px;
+  background: #0f1a30;
+  border: 1px solid #1e2d4a;
+  border-radius: 8px;
+  color: #eee;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+  border-color: #0f3460;
+}
+
+select {
+  padding: 8px 12px;
+  background: #0f1a30;
+  border: 1px solid #1e2d4a;
+  border-radius: 8px;
+  color: #eee;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+select:focus {
+  border-color: #0f3460;
+}
+
+/* ===== Buttons ===== */
+button[type="submit"],
+#translate-btn,
+#new-translation-btn {
+  width: 100%;
+  padding: 12px;
+  background: #0f3460;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+button[type="submit"]:hover,
+#translate-btn:hover:not(:disabled),
+#new-translation-btn:hover {
+  background: #1a4a8a;
+}
+
+#translate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== Error Messages ===== */
+.error-msg {
+  background: rgba(233, 69, 96, 0.12);
+  color: #e94560;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* ===== Drop Zone ===== */
+#drop-zone {
+  border: 2px dashed #1e2d4a;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#drop-zone.dragover {
+  border-color: #0f3460;
+  background: rgba(15, 52, 96, 0.15);
+}
+
+.drop-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.drop-main {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.drop-sub {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+/* ===== File List ===== */
+#file-list {
+  margin-top: 16px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #0f1a30;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.file-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.file-remove {
+  background: none;
+  border: none;
+  color: #e94560;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.file-remove:hover {
+  background: rgba(233, 69, 96, 0.15);
+}
+
+/* ===== Formats Row ===== */
+.formats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  justify-content: center;
+}
+
+.format-ok {
+  color: #999;
+}
+
+.format-disabled {
+  color: #555;
+}
+
+/* ===== Options Row ===== */
+.options-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.options-row label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+/* ===== Progress ===== */
+#progress-section {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.progress-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.secondary {
+  color: #999;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #1e2d4a;
+  border-top-color: #0f3460;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Results ===== */
+#results-section h2 {
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+}
+
+.download-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #0f1a30;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.download-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.download-btn {
+  background: #0f3460;
+  color: #eee;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.download-btn:hover {
+  background: #1a4a8a;
+}
+
+/* ===== Stats Box ===== */
+.stats-box {
+  background: #0f1a30;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: #999;
+}
+
+.stats-box strong {
+  color: #eee;
+}
