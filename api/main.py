@@ -22,11 +22,11 @@ import ooxml_translate
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-APP_PASSWORD = os.environ["APP_PASSWORD"]
-APP_SECRET = os.environ["APP_SECRET"]
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+APP_SECRET = os.environ.get("APP_SECRET", "")
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
-GCS_BUCKET = os.environ["GCS_BUCKET"]
+GCS_BUCKET = os.environ.get("GCS_BUCKET", "")
 CLP_PER_WORD = 5  # ponytail: hard-coded rate, change here if pricing changes
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +49,7 @@ app.add_middleware(
 )
 
 gcs = storage.Client()
-bucket = gcs.bucket(GCS_BUCKET)
+bucket = gcs.bucket(GCS_BUCKET) if GCS_BUCKET else None
 
 ALLOWED_EXT = {".docx", ".xlsx", ".pptx"}
 CONTENT_TYPES = {
