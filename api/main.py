@@ -16,10 +16,8 @@ from fastapi.responses import Response
 import openai
 from google.cloud import storage
 
-# Existing translation modules (copied into Docker image alongside this file)
-import word_translate as docx_mod
-import excel_translate as xlsx_mod
-import ppt_translate as pptx_mod
+# Unified OOXML translation module (copied into Docker image alongside this file)
+import ooxml_translate
 
 # ---------------------------------------------------------------------------
 # Config
@@ -224,14 +222,6 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
     translated_files = []
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-    system_msg = (
-        "Eres un asistente de traducción. Traduces cualquier texto que recibas "
-        "al español, sin realizar comentarios adicionales."
-        if language == "es"
-        else "You are a translation assistant. You translate any text into english, "
-        "without making any comments even if it is not translatable."
-    )
-
     # Initialize the local status dictionary
     status = {
         "status": "procesando",
@@ -250,30 +240,17 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
 
     last_gcs_save = time.time()
 
-    def translator(text):
-        nonlocal total_words, words_translated, last_gcs_save
-        if not text.strip():
-            return ""
-
-        input_words = len(text.strip().split())
-        words_translated += input_words
-        status["words_translated"] = words_translated
-
-        current_time = time.time()
-        if current_time - last_gcs_save > 5:
-            _save_status(job_id, status)
-            last_gcs_save = current_time
-
-        # ponytail: single retry on transient failures. Ceiling: gives up
-        # after 2 attempts. Upgrade path: exponential backoff / queue.
+    def llm_call(system_prompt, user_prompt):
+        """LLM call with retry, used by ooxml_translate internally."""
+        nonlocal total_words
         last_err = None
         for attempt in range(2):
             try:
                 result = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": text.strip()},
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
                     ],
                     temperature=0.7,
                 )
@@ -286,6 +263,16 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
                     time.sleep(2)
         raise last_err
 
+    def on_progress(words):
+        """Called by ooxml_translate after each translated element."""
+        nonlocal words_translated, last_gcs_save
+        words_translated += words
+        status["words_translated"] = words_translated
+        current_time = time.time()
+        if current_time - last_gcs_save > 5:
+            _save_status(job_id, status)
+            last_gcs_save = current_time
+
     try:
         # 1. Download all files to tmp_dir and pre-calculate words_total
         for fi in file_infos:
@@ -293,12 +280,7 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
             in_path = os.path.join(tmp_dir, name)
             try:
                 bucket.blob(f"jobs/{job_id}/input/{name}").download_to_filename(in_path)
-                if ext == ".docx":
-                    words_total += docx_mod.get_word_word_count(in_path)
-                elif ext == ".xlsx":
-                    words_total += xlsx_mod.get_excel_word_count(in_path)
-                elif ext == ".pptx":
-                    words_total += pptx_mod.get_ppt_word_count(in_path)
+                words_total += ooxml_translate.get_word_count(in_path)
             except Exception as ex:
                 log.error(f"Error downloading or counting words for {name}: {ex}", exc_info=True)
 
@@ -315,18 +297,10 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
             status["files_done"] = i
             _save_status(job_id, status)
 
-            # Create output copy (preserves formatting)
+            # Translate (reads input zip, writes new output zip)
             out_name = os.path.splitext(name)[0] + " [TRADUCIDO]" + ext
             out_path = os.path.join(tmp_dir, out_name)
-            shutil.copy2(in_path, out_path)
-
-            # Translate using existing modules
-            if ext == ".docx":
-                docx_mod.translate_word(root, name, out_name, translator)
-            elif ext == ".xlsx":
-                xlsx_mod.translate_excel(root, name, out_name, translator)
-            elif ext == ".pptx":
-                pptx_mod.translate_ppt(root, name, out_name, translator)
+            ooxml_translate.translate_file(in_path, out_path, language, llm_call, on_progress)
 
             # Upload result to GCS
             bucket.blob(f"jobs/{job_id}/output/{out_name}").upload_from_filename(

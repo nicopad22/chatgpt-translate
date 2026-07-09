@@ -3,6 +3,3 @@ uvicorn[standard]
 python-multipart
 google-cloud-storage
 openai
-python-docx
-openpyxl
-python-pptx

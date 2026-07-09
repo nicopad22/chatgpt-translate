@@ -3,9 +3,4 @@ __pycache__/
 .env
 .vercel/
 node_modules/
-word_translate_xml.py
-__pycache__/excel_translate.cpython-39.pyc
-__pycache__/ppt_translate.cpython-39.pyc
-__pycache__/word_translate.cpython-39.pyc
-__pycache__/
 deploy_instructions.md

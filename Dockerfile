@@ -2,7 +2,7 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY word_translate.py excel_translate.py ppt_translate.py ./
+COPY ooxml_translate.py ./
 COPY api/main.py .
 EXPOSE 8080
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
