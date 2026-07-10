@@ -379,3 +379,379 @@ button[type="submit"]:hover,
 .stats-box strong {
   color: #eee;
 }
+
+/* ===== Topbar Navigation ===== */
+.topbar-brand {
+  color: #eee;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: opacity 0.15s;
+}
+
+.topbar-brand:hover {
+  opacity: 0.85;
+}
+
+.topbar-nav-link {
+  color: #999;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.topbar-nav-link:hover {
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.topbar-nav-active {
+  color: #eee;
+  background: rgba(15, 52, 96, 0.5);
+}
+
+.topbar-email {
+  color: #666;
+  font-size: 0.85rem;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Landing Page ===== */
+.landing-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landing-hero {
+  text-align: center;
+  padding: 40px 0 60px;
+}
+
+.landing-logo {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 20px rgba(15, 52, 96, 0.5));
+}
+
+.landing-hero h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #eee 0%, #0f3460 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+}
+
+.landing-tagline {
+  font-size: 1.15rem;
+  color: #999;
+  margin-bottom: 32px;
+}
+
+.landing-formats {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.landing-format-badge {
+  background: rgba(15, 52, 96, 0.35);
+  border: 1px solid #1e2d4a;
+  color: #ccc;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.landing-description {
+  color: #777;
+  font-size: 0.95rem;
+  max-width: 420px;
+  margin: 0 auto 36px;
+  line-height: 1.6;
+}
+
+.landing-cta {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 12px 32px;
+  background: #0f3460;
+  color: #eee;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn-primary:hover {
+  background: #1a4a8a;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-block;
+  padding: 12px 32px;
+  background: transparent;
+  color: #eee;
+  border: 1px solid #1e2d4a;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.btn-secondary:hover {
+  background: rgba(15, 52, 96, 0.2);
+  border-color: #0f3460;
+  transform: translateY(-1px);
+}
+
+/* ===== Auth Pages (Login / Signup) ===== */
+.auth-card {
+  margin-top: 12vh;
+  text-align: center;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-card h1 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.auth-back-link {
+  display: inline-block;
+  color: #999;
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-bottom: 24px;
+  transition: color 0.15s;
+}
+
+.auth-back-link:hover {
+  color: #eee;
+}
+
+.auth-link {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.auth-link a {
+  color: #0f3460;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.auth-link a:hover {
+  color: #1a4a8a;
+}
+
+input[type="email"] {
+  width: 100%;
+  padding: 10px 14px;
+  background: #0f1a30;
+  border: 1px solid #1e2d4a;
+  border-radius: 8px;
+  color: #eee;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="email"]:focus {
+  border-color: #0f3460;
+}
+
+/* ===== Success Messages ===== */
+.success-msg {
+  background: rgba(46, 196, 134, 0.12);
+  color: #2ec486;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* ===== Account Page ===== */
+.account-screen {
+  padding-top: 20px;
+}
+
+.account-card {
+  margin-bottom: 20px;
+}
+
+.account-card h2 {
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1e2d4a;
+}
+
+.account-info-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.account-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(30, 45, 74, 0.4);
+}
+
+.account-info-item:last-child {
+  border-bottom: none;
+}
+
+.account-info-label {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.account-info-value {
+  color: #eee;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.account-type-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(153, 153, 153, 0.15);
+  color: #999;
+}
+
+.account-type-badge.badge-pro {
+  background: rgba(15, 52, 96, 0.3);
+  color: #5b9bd5;
+}
+
+.account-type-badge.badge-admin {
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+}
+
+.account-loading {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.account-empty {
+  text-align: center;
+  padding: 24px 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* ===== History Table ===== */
+.history-table-wrap {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.history-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  color: #999;
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #1e2d4a;
+  white-space: nowrap;
+}
+
+.history-table tbody td {
+  padding: 10px 12px;
+  color: #ccc;
+  border-bottom: 1px solid rgba(30, 45, 74, 0.3);
+  white-space: nowrap;
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tbody tr:hover {
+  background: rgba(15, 52, 96, 0.12);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .landing-hero h1 {
+    font-size: 2rem;
+  }
+
+  .landing-cta {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    max-width: 280px;
+    text-align: center;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+
+  .topbar-email {
+    display: none;
+  }
+
+  .topbar-nav-link {
+    font-size: 0.8rem;
+    padding: 4px 6px;
+  }
+
+  .account-info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .account-info-value {
+    text-align: left;
+  }
+}

@@ -3,35 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Traductor de Documentos</title>
+  <title>Traductor de Documentos — TranslatePro</title>
+  <meta name="description" content="Traduce documentos .docx, .xlsx y .pptx de forma automática.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Login Screen -->
-  <div id="login-screen" class="screen">
-    <div class="container">
-      <div class="card login-card">
-        <h1>📄 Traductor de Documentos</h1>
-        <p class="subtitle">Traducción automática de documentos</p>
-        <form id="login-form" onsubmit="return false;">
-          <label for="username-input">Nombre de usuario</label>
-          <input type="text" id="username-input" autocomplete="username" required>
-          <label for="password-input">Contraseña</label>
-          <input type="password" id="password-input" autocomplete="current-password" required>
-          <button type="submit" id="login-btn">Entrar</button>
-        </form>
-        <div id="login-error" class="error-msg" hidden></div>
-      </div>
-    </div>
-  </div>
-
   <!-- Upload Screen -->
-  <div id="upload-screen" class="screen" hidden>
+  <div id="upload-screen" class="screen">
     <header class="topbar">
-      <div class="topbar-left">📄 Traductor</div>
+      <div class="topbar-left">
+        <a href="/app" class="topbar-brand">📄 TranslatePro</a>
+      </div>
       <div class="topbar-right">
-        <span id="header-username"></span>
+        <a href="/app" class="topbar-nav-link topbar-nav-active">Traducir</a>
+        <a href="/account" class="topbar-nav-link">Mi Cuenta</a>
+        <span id="header-username" class="topbar-email"></span>
         <button id="logout-btn" class="btn-link">Salir</button>
       </div>
     </header>
@@ -70,9 +57,13 @@
   <!-- Results Screen -->
   <div id="results-screen" class="screen" hidden>
     <header class="topbar">
-      <div class="topbar-left">📄 Traductor</div>
+      <div class="topbar-left">
+        <a href="/app" class="topbar-brand">📄 TranslatePro</a>
+      </div>
       <div class="topbar-right">
-        <span id="header-username-2"></span>
+        <a href="/app" class="topbar-nav-link topbar-nav-active">Traducir</a>
+        <a href="/account" class="topbar-nav-link">Mi Cuenta</a>
+        <span id="header-username-2" class="topbar-email"></span>
         <button id="logout-btn-2" class="btn-link">Salir</button>
       </div>
     </header>
@@ -99,6 +90,9 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth-guard.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

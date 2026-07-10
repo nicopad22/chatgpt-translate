@@ -1,6 +1,6 @@
 if [ -f .env ]; then
   export $(echo $(grep -v '^#' .env | xargs) | envsubst)
-fi
+fi 
 
 gcloud run deploy translate-api \
   --project project-automation-498114 \
@@ -13,10 +13,11 @@ gcloud run deploy translate-api \
   --timeout 3600 \
   --memory 512Mi \
   --set-env-vars "OPENAI_API_KEY=$OPENAI_API_KEY,
-APP_PASSWORD=$APP_PASSWORD,
-APP_SECRET=$APP_SECRET,
 GCS_BUCKET=$GCS_BUCKET,
-CORS_ORIGIN=$CORS_ORIGIN"
+CORS_ORIGIN=$CORS_ORIGIN,
+SUPABASE_URL=$SUPABASE_URL,
+SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET,
+SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
 
 cd frontend/
 vercel --prod

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Sesión — TranslatePro</title>
+  <meta name="description" content="Inicia sesión en TranslatePro para traducir tus documentos.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="screen">
+    <div class="container">
+      <div class="card auth-card">
+        <a href="/" class="auth-back-link">← Volver al inicio</a>
+        <h1>📄 TranslatePro</h1>
+        <p class="subtitle">Inicia sesión en tu cuenta</p>
+        <form id="login-form" onsubmit="return false;">
+          <label for="email-input">Correo electrónico</label>
+          <input type="email" id="email-input" autocomplete="email" required>
+          <label for="password-input">Contraseña</label>
+          <input type="password" id="password-input" autocomplete="current-password" required>
+          <button type="submit" id="login-btn">Entrar</button>
+        </form>
+        <div id="login-error" class="error-msg" hidden></div>
+        <p class="auth-link">¿No tienes cuenta? <a href="/signup">Crear una</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    // If already logged in, redirect
+    window.supabaseClient.auth.getSession().then(function (result) {
+      if (result.data.session) {
+        window.location.href = '/app';
+      }
+    });
+
+    var emailInput = document.getElementById('email-input');
+    var passwordInput = document.getElementById('password-input');
+    var loginBtn = document.getElementById('login-btn');
+    var loginError = document.getElementById('login-error');
+    var loginForm = document.getElementById('login-form');
+
+    function showError(el, message) {
+      el.textContent = message;
+      el.hidden = false;
+    }
+
+    loginForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      loginError.hidden = true;
+
+      var email = emailInput.value.trim();
+      var password = passwordInput.value;
+
+      if (!email || !password) {
+        showError(loginError, 'Ingresa correo y contraseña');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Entrando...';
+
+      try {
+        var result = await window.supabaseClient.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message || 'Credenciales incorrectas');
+        }
+
+        window.location.href = '/app';
+      } catch (err) {
+        showError(loginError, err.message || 'Error al iniciar sesión');
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,18 +1,19 @@
 import os
 import uuid
-import hmac
-import hashlib
 import json
 import time
 import shutil
 import threading
 import tempfile
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+import jwt
+import httpx
 import openai
 from google.cloud import storage
 
@@ -23,11 +24,14 @@ import ooxml_translate
 # Config
 # ---------------------------------------------------------------------------
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
-APP_SECRET = os.environ.get("APP_SECRET", "")
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 GCS_BUCKET = os.environ.get("GCS_BUCKET", "")
 CLP_PER_WORD = 5  # ponytail: hard-coded rate, change here if pricing changes
+
+# Supabase config
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://hbdgitevyptizksjewkz.supabase.co")
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("translate-api")
@@ -59,39 +63,183 @@ CONTENT_TYPES = {
 }
 
 # ---------------------------------------------------------------------------
-# Auth — HMAC tokens from stdlib, no PyJWT
+# HTTP clients for Supabase REST API (connection pooling)
 # ---------------------------------------------------------------------------
-TOKEN_TTL = 86400  # 24 hours
+_supabase_headers = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
+_supabase_base_url = f"{SUPABASE_URL}/rest/v1"
 
+# Async client for use in async endpoints
+_async_http = httpx.AsyncClient(
+    base_url=_supabase_base_url,
+    headers=_supabase_headers,
+    timeout=15.0,
+)
 
-def _make_token(username: str) -> str:
-    expiry = str(int(time.time()) + TOKEN_TTL)
-    payload = f"{username}:{expiry}"
-    sig = hmac.new(APP_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}:{sig}"
+# Sync client for use in background threads
+_sync_http = httpx.Client(
+    base_url=_supabase_base_url,
+    headers=_supabase_headers,
+    timeout=15.0,
+)
 
-
-def _verify_token(token: str) -> str:
-    """Returns username or raises 401."""
-    parts = token.rsplit(":", 2)
-    if len(parts) != 3:
-        raise HTTPException(401, "Token inválido")
-    username, expiry, sig = parts
-    expected = hmac.new(
-        APP_SECRET.encode(), f"{username}:{expiry}".encode(), hashlib.sha256
-    ).hexdigest()
-    if not hmac.compare_digest(sig, expected):
-        raise HTTPException(401, "Token inválido")
-    if int(expiry) < time.time():
-        raise HTTPException(401, "Sesión expirada")
-    return username
-
-
+# ---------------------------------------------------------------------------
+# Auth — Supabase JWT verification
+# ---------------------------------------------------------------------------
 def _current_user(request: Request) -> str:
+    """Extract and verify Supabase JWT from Authorization header.
+
+    Returns the user UUID (``sub`` claim) or raises 401.
+    """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(401, "No autorizado")
-    return _verify_token(auth[7:])
+    token = auth[7:]
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"require": ["sub", "exp"]},
+        )
+        return payload["sub"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Sesión expirada")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Token inválido")
+
+
+# ---------------------------------------------------------------------------
+# Supabase DB helpers — async (for endpoints)
+# ---------------------------------------------------------------------------
+async def _get_usuario(user_uuid: str) -> dict | None:
+    """Lookup full usuario row by user_uuid. Returns dict or None."""
+    resp = await _async_http.get(
+        "/usuarios",
+        params={"user_uuid": f"eq.{user_uuid}", "select": "*"},
+    )
+    resp.raise_for_status()
+    rows = resp.json()
+    return rows[0] if rows else None
+
+
+async def _check_rate_limit(usuario_id: int, account_type: int) -> bool:
+    """Return True if the user is allowed to translate.
+
+    Free-tier users (account_type == 0) are limited to 1 translation job
+    per calendar day (UTC).
+    """
+    if account_type != 0:
+        return True
+    today_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ).isoformat()
+    resp = await _async_http.get(
+        "/traducciones",
+        params={
+            "id_usuario": f"eq.{usuario_id}",
+            "created_at": f"gte.{today_start}",
+            "select": "id",
+        },
+        headers={**_supabase_headers, "Prefer": "count=exact"},
+    )
+    resp.raise_for_status()
+    count = int(resp.headers.get("content-range", "*/0").split("/")[-1])
+    return count < 1
+
+
+async def _insert_traduccion(usuario_id: int, num_archivos: int, idioma: str) -> int:
+    """Insert a row into traducciones and return its id."""
+    resp = await _async_http.post(
+        "/traducciones",
+        json={
+            "id_usuario": usuario_id,
+            "numero_archivos": num_archivos,
+            "idioma": idioma,
+            "costo": 0,
+            "moneda_costo": "CLP",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()[0]["id"]
+
+
+async def _insert_archivos(
+    traduccion_id: int, usuario_id: int, file_infos: list, job_id: str
+) -> None:
+    """Insert archivo rows with GCS original paths; nuevo is null."""
+    rows = [
+        {
+            "id_traduccion": traduccion_id,
+            "id_usuario": usuario_id,
+            "original": f"jobs/{job_id}/input/{fi['name']}",
+            "nuevo": None,
+        }
+        for fi in file_infos
+    ]
+    resp = await _async_http.post("/archivos", json=rows)
+    resp.raise_for_status()
+
+
+async def _update_traduccion_cost(
+    traduccion_id: int, costo: float, moneda: str
+) -> None:
+    """Update cost columns on a traduccion row."""
+    resp = await _async_http.patch(
+        "/traducciones",
+        params={"id": f"eq.{traduccion_id}"},
+        json={"costo": costo, "moneda_costo": moneda},
+    )
+    resp.raise_for_status()
+
+
+async def _update_archivo_nuevo(
+    traduccion_id: int, original_name: str, nuevo_path: str
+) -> None:
+    """Update the nuevo column for a specific archivo after translation."""
+    resp = await _async_http.patch(
+        "/archivos",
+        params={
+            "id_traduccion": f"eq.{traduccion_id}",
+            "original": f"like.*/{original_name}",
+        },
+        json={"nuevo": nuevo_path},
+    )
+    resp.raise_for_status()
+
+
+# ---------------------------------------------------------------------------
+# Supabase DB helpers — sync (for background thread)
+# ---------------------------------------------------------------------------
+def _sync_update_archivo_nuevo(
+    traduccion_id: int, original_name: str, nuevo_path: str
+) -> None:
+    """Sync version: update the nuevo column after translation."""
+    resp = _sync_http.patch(
+        "/archivos",
+        params={
+            "id_traduccion": f"eq.{traduccion_id}",
+            "original": f"like.*/{original_name}",
+        },
+        json={"nuevo": nuevo_path},
+    )
+    resp.raise_for_status()
+
+
+def _sync_update_traduccion_cost(
+    traduccion_id: int, costo: float, moneda: str
+) -> None:
+    """Sync version: update cost columns on a traduccion row."""
+    resp = _sync_http.patch(
+        "/traducciones",
+        params={"id": f"eq.{traduccion_id}"},
+        json={"costo": costo, "moneda_costo": moneda},
+    )
+    resp.raise_for_status()
 
 
 # ---------------------------------------------------------------------------
@@ -125,24 +273,32 @@ async def health():
     return {"status": "ok"}
 
 
-@app.post("/auth/login")
-async def login(username: str = Form(...), password: str = Form(...)):
-    if password != APP_PASSWORD:
-        raise HTTPException(401, "Contraseña incorrecta")
-    name = username.strip()
-    if not name:
-        raise HTTPException(400, "Ingresa un nombre de usuario")
-    return {"token": _make_token(name), "username": name}
-
-
 @app.post("/jobs")
 async def create_job(
     language: str = Form(...),
     files: list[UploadFile] = File(...),
-    user: str = Depends(_current_user),
+    user_uuid: str = Depends(_current_user),
 ):
     if language not in ("es", "en"):
         raise HTTPException(400, "Idioma debe ser 'es' o 'en'")
+
+    # --- Supabase user lookup ---
+    usuario = await _get_usuario(user_uuid)
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+    if not usuario.get("is_active", False):
+        raise HTTPException(403, "Cuenta desactivada")
+
+    usuario_id = usuario["id"]
+    account_type = usuario["account_type"]
+
+    # --- Rate limit for free tier ---
+    if not await _check_rate_limit(usuario_id, account_type):
+        raise HTTPException(
+            429,
+            "Has alcanzado el límite diario de traducciones. "
+            "Actualiza tu plan para continuar.",
+        )
 
     job_id = uuid.uuid4().hex[:12]
 
@@ -160,10 +316,14 @@ async def create_job(
         content = await f.read()
         blob.upload_from_string(content, content_type=f.content_type)
 
+    # --- Insert DB records ---
+    traduccion_id = await _insert_traduccion(usuario_id, len(file_infos), language)
+    await _insert_archivos(traduccion_id, usuario_id, file_infos, job_id)
+
     status = {
         "status": "procesando",
         "language": language,
-        "username": user,
+        "user_uuid": user_uuid,
         "files": [fi["name"] for fi in file_infos],
         "translated_files": [],
         "word_count": 0,
@@ -177,7 +337,9 @@ async def create_job(
     _save_status(job_id, status)
 
     t = threading.Thread(
-        target=_translate_job, args=(job_id, file_infos, language, user), daemon=True
+        target=_translate_job,
+        args=(job_id, file_infos, language, user_uuid, traduccion_id),
+        daemon=True,
     )
     t.start()
 
@@ -209,9 +371,73 @@ async def download_file(job_id: str, filename: str, user: str = Depends(_current
 
 
 # ---------------------------------------------------------------------------
+# Account & History endpoints
+# ---------------------------------------------------------------------------
+@app.get("/account")
+async def get_account(user_uuid: str = Depends(_current_user)):
+    """Return account info and aggregate translation stats."""
+    usuario = await _get_usuario(user_uuid)
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    usuario_id = usuario["id"]
+
+    # Fetch aggregate stats from traducciones
+    resp = await _async_http.get(
+        "/traducciones",
+        params={
+            "id_usuario": f"eq.{usuario_id}",
+            "select": "id,costo",
+        },
+    )
+    resp.raise_for_status()
+    traducciones = resp.json()
+
+    translations_count = len(traducciones)
+    total_cost = sum(t.get("costo", 0) or 0 for t in traducciones)
+
+    return {
+        "account_type": usuario["account_type"],
+        "created_at": usuario["created_at"],
+        "is_active": usuario["is_active"],
+        "translations_count": translations_count,
+        "total_cost": total_cost,
+    }
+
+
+@app.get("/history")
+async def get_history(user_uuid: str = Depends(_current_user)):
+    """Return the user's translation history (last 50) with associated files."""
+    usuario = await _get_usuario(user_uuid)
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    usuario_id = usuario["id"]
+
+    # Fetch last 50 traducciones with embedded archivos via PostgREST resource embedding
+    resp = await _async_http.get(
+        "/traducciones",
+        params={
+            "id_usuario": f"eq.{usuario_id}",
+            "select": "id,created_at,numero_archivos,costo,moneda_costo,idioma,archivos(id,original,nuevo,created_at)",
+            "order": "created_at.desc",
+            "limit": "50",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+# ---------------------------------------------------------------------------
 # Background translation
 # ---------------------------------------------------------------------------
-def _translate_job(job_id: str, file_infos: list, language: str, username: str):
+def _translate_job(
+    job_id: str,
+    file_infos: list,
+    language: str,
+    user_uuid: str,
+    traduccion_id: int,
+):
     tmp_dir = os.path.join(tempfile.gettempdir(), job_id)
     os.makedirs(tmp_dir, exist_ok=True)
     root = tmp_dir + "/"
@@ -226,7 +452,7 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
     status = {
         "status": "procesando",
         "language": language,
-        "username": username,
+        "user_uuid": user_uuid,
         "files": [fi["name"] for fi in file_infos],
         "translated_files": [],
         "word_count": 0,
@@ -303,17 +529,22 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
             ooxml_translate.translate_file(in_path, out_path, language, llm_call, on_progress)
 
             # Upload result to GCS
-            bucket.blob(f"jobs/{job_id}/output/{out_name}").upload_from_filename(
-                out_path
-            )
+            gcs_output_path = f"jobs/{job_id}/output/{out_name}"
+            bucket.blob(gcs_output_path).upload_from_filename(out_path)
             translated_files.append(out_name)
+
+            # Update archivo's nuevo column in Supabase
+            try:
+                _sync_update_archivo_nuevo(traduccion_id, name, gcs_output_path)
+            except Exception as db_err:
+                log.error(f"Error updating archivo nuevo for {name}: {db_err}")
 
         # Final status
         cost = total_words * CLP_PER_WORD
         final = {
             "status": "listo",
             "language": language,
-            "username": username,
+            "user_uuid": user_uuid,
             "files": [fi["name"] for fi in file_infos],
             "translated_files": translated_files,
             "word_count": total_words,
@@ -326,10 +557,16 @@ def _translate_job(job_id: str, file_infos: list, language: str, username: str):
         }
         _save_status(job_id, final)
 
+        # Update translation cost in Supabase
+        try:
+            _sync_update_traduccion_cost(traduccion_id, cost, "CLP")
+        except Exception as db_err:
+            log.error(f"Error updating traduccion cost: {db_err}")
+
         log.info(
             "[TRADUCCIÓN] usuario: %s | archivos: %d | idioma: %s | "
             "palabras: %s | costo: $%s CLP",
-            username,
+            user_uuid,
             len(file_infos),
             language,
             f"{total_words:,}".replace(",", "."),
