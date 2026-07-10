@@ -36,10 +36,11 @@
   };
 
   /**
-   * Sign out the current user and redirect to landing page.
+   * Sign out the current user and redirect to the requested page.
    */
-  window.signOut = async function () {
+  window.signOut = async function (options) {
+    var redirectTo = (options && options.redirectTo) ? options.redirectTo : '/';
     await window.supabaseClient.auth.signOut();
-    window.location.href = '/';
+    window.location.href = redirectTo;
   };
 })();

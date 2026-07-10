@@ -6,6 +6,7 @@ import shutil
 import threading
 import tempfile
 import logging
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,9 +14,20 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Req
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 import jwt
+from jwt import PyJWKClient
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    InvalidTokenError,
+    PyJWKClientError,
+)
 import httpx
 import openai
 from google.cloud import storage
+
+try:
+    from jwt.exceptions import PyJWKClientConnectionError
+except ImportError:  # pragma: no cover - compatibility with older PyJWT
+    PyJWKClientConnectionError = PyJWKClientError
 
 # Unified OOXML translation module (copied into Docker image alongside this file)
 import ooxml_translate
@@ -32,6 +44,10 @@ CLP_PER_WORD = 5  # ponytail: hard-coded rate, change here if pricing changes
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://hbdgitevyptizksjewkz.supabase.co")
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+SUPABASE_ISSUER = f"{SUPABASE_URL}/auth/v1"
+SUPABASE_JWKS_URL = f"{SUPABASE_ISSUER}/.well-known/jwks.json"
+SUPABASE_JWT_ALGORITHMS = ("RS256", "ES256", "EdDSA")
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("translate-api")
@@ -87,6 +103,8 @@ _sync_http = httpx.Client(
     timeout=15.0,
 )
 
+_supabase_jwk_client = PyJWKClient(SUPABASE_JWKS_URL)
+
 # ---------------------------------------------------------------------------
 # Auth — Supabase JWT verification
 # ---------------------------------------------------------------------------
@@ -100,16 +118,30 @@ def _current_user(request: Request) -> str:
         raise HTTPException(401, "No autorizado")
     token = auth[7:]
     try:
+        unverified_header = jwt.get_unverified_header(token)
+        algorithm = unverified_header.get("alg")
+        if algorithm not in SUPABASE_JWT_ALGORITHMS:
+            log.warning("Unsupported JWT algorithm from Supabase token: %s", algorithm)
+            raise HTTPException(401, "Token inválido")
+
+        signing_key = _supabase_jwk_client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
             token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            options={"require": ["sub", "exp"]},
+            signing_key.key,
+            algorithms=[algorithm],
+            issuer=SUPABASE_ISSUER,
+            options={"require": ["sub", "exp"], "verify_aud": False},
         )
         return payload["sub"]
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise HTTPException(401, "Sesión expirada")
-    except jwt.InvalidTokenError:
+    except PyJWKClientConnectionError as exc:
+        log.error("Failed to fetch Supabase JWKS: %s", exc)
+        raise HTTPException(503, "No se pudo verificar la sesión")
+    except PyJWKClientError as exc:
+        log.warning("Supabase JWKS verification failed: %s", exc)
+        raise HTTPException(401, "Token inválido")
+    except InvalidTokenError:
         raise HTTPException(401, "Token inválido")
 
 

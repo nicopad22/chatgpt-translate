@@ -45,10 +45,22 @@ function logout() {
   window.signOut();
 }
 
-function handleUnauthorized(res) {
+async function getResponseDetail(res) {
+  var cloned = res.clone();
+  var data = await cloned.json().catch(function () { return null; });
+  if (data && typeof data.detail === 'string') {
+    return data.detail;
+  }
+  return '';
+}
+
+async function handleUnauthorized(res) {
   if (res.status === 401) {
-    window.signOut();
-    return true;
+    var detail = await getResponseDetail(res);
+    if (detail === 'Sesión expirada' || detail === 'Token inválido' || detail === 'No autorizado') {
+      await window.signOut({ redirectTo: '/login' });
+      return true;
+    }
   }
   return false;
 }
@@ -165,7 +177,7 @@ async function startTranslation() {
       body: form
     });
 
-    if (handleUnauthorized(res)) return;
+    if (await handleUnauthorized(res)) return;
 
     if (!res.ok) {
       var errData = await res.json().catch(function () { return {}; });
@@ -205,7 +217,7 @@ function pollStatus(jobId) {
         headers: authHeaders
       });
 
-      if (handleUnauthorized(res)) {
+      if (await handleUnauthorized(res)) {
         clearInterval(pollInterval);
         return;
       }
@@ -309,7 +321,7 @@ async function downloadFile(jobId, filename) {
       headers: authHeaders
     });
 
-    if (handleUnauthorized(res)) return;
+    if (await handleUnauthorized(res)) return;
 
     if (!res.ok) {
       throw new Error('Error al descargar');

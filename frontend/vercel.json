@@ -1,12 +1,5 @@
 {
   "cleanUrls": true,
-  "rewrites": [
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/login", "destination": "/login.html" },
-    { "source": "/signup", "destination": "/signup.html" },
-    { "source": "/account", "destination": "/account.html" },
-    { "source": "/", "destination": "/landing.html" }
-  ],
   "headers": [
     { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }] }
   ]

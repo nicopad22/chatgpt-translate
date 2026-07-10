@@ -1,11 +1,9 @@
 import { defineConfig } from 'vite';
-import fs from 'fs';
-import path from 'path';
 
-// A simple plugin to simulate vercel.json rewrites and cleanUrls locally
-function localRewritesPlugin() {
+// A simple plugin to simulate vercel.json cleanUrls locally (app.html -> /app, etc.)
+function cleanUrlsPlugin() {
   return {
-    name: 'local-rewrites',
+    name: 'clean-urls',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url, `http://${req.headers.host}`);
@@ -16,16 +14,16 @@ function localRewritesPlugin() {
           pathname = pathname.slice(0, -1);
         }
 
-        const rewrites = {
-          '/': '/landing.html',
-          '/app': '/index.html',
+        // Clean URLs mapping (simulate cleanUrls: true)
+        const cleanRoutes = {
+          '/app': '/app.html',
           '/login': '/login.html',
           '/signup': '/signup.html',
           '/account': '/account.html'
         };
 
-        if (rewrites[pathname]) {
-          req.url = rewrites[pathname] + url.search;
+        if (cleanRoutes[pathname]) {
+          req.url = cleanRoutes[pathname] + url.search;
         }
 
         next();
@@ -35,7 +33,7 @@ function localRewritesPlugin() {
 }
 
 export default defineConfig({
-  plugins: [localRewritesPlugin()],
+  plugins: [cleanUrlsPlugin()],
   server: {
     port: 5173
   }
