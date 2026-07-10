@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Cuenta — TranslatePro</title>
+  <meta name="description" content="Administra tu cuenta en TranslatePro.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="/app" class="topbar-brand">📄 TranslatePro</a>
+    </div>
+    <div class="topbar-right">
+      <a href="/app" class="topbar-nav-link">Traducir</a>
+      <a href="/account" class="topbar-nav-link topbar-nav-active">Mi Cuenta</a>
+      <button id="logout-btn" class="btn-link">Salir</button>
+    </div>
+  </header>
+
+  <div class="screen account-screen">
+    <div class="container">
+
+      <!-- Account Info Card -->
+      <div class="card account-card">
+        <h2>Información de la cuenta</h2>
+        <div class="account-info-grid">
+          <div class="account-info-item">
+            <span class="account-info-label">Correo electrónico</span>
+            <span id="account-email" class="account-info-value">—</span>
+          </div>
+          <div class="account-info-item">
+            <span class="account-info-label">Tipo de cuenta</span>
+            <span id="account-type" class="account-info-value">—</span>
+          </div>
+          <div class="account-info-item">
+            <span class="account-info-label">Miembro desde</span>
+            <span id="account-created" class="account-info-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Translation History Card -->
+      <div class="card account-card">
+        <h2>Historial de traducciones</h2>
+        <div id="history-loading" class="account-loading">
+          <div class="spinner"></div>
+          <p class="secondary">Cargando historial...</p>
+        </div>
+        <div id="history-list" hidden></div>
+        <div id="history-empty" class="account-empty" hidden>
+          <p>No tienes traducciones aún</p>
+        </div>
+        <div id="history-error" class="error-msg" hidden></div>
+      </div>
+
+      <!-- Change Password Card -->
+      <div class="card account-card">
+        <h2>Cambiar contraseña</h2>
+        <form id="password-form" onsubmit="return false;">
+          <label for="new-password-input">Nueva contraseña</label>
+          <input type="password" id="new-password-input" autocomplete="new-password" required>
+          <label for="confirm-new-password-input">Confirmar nueva contraseña</label>
+          <input type="password" id="confirm-new-password-input" autocomplete="new-password" required>
+          <button type="submit" id="change-password-btn">Cambiar Contraseña</button>
+        </form>
+        <div id="password-error" class="error-msg" hidden></div>
+        <div id="password-success" class="success-msg" hidden></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth-guard.js"></script>
+  <script>
+    var API_URL = 'https://translate-api-351640193452.us-central1.run.app';
+
+    var accountEmail = document.getElementById('account-email');
+    var accountType = document.getElementById('account-type');
+    var accountCreated = document.getElementById('account-created');
+    var historyLoading = document.getElementById('history-loading');
+    var historyList = document.getElementById('history-list');
+    var historyEmpty = document.getElementById('history-empty');
+    var historyError = document.getElementById('history-error');
+    var logoutBtn = document.getElementById('logout-btn');
+
+    var passwordForm = document.getElementById('password-form');
+    var newPasswordInput = document.getElementById('new-password-input');
+    var confirmNewPasswordInput = document.getElementById('confirm-new-password-input');
+    var changePasswordBtn = document.getElementById('change-password-btn');
+    var passwordError = document.getElementById('password-error');
+    var passwordSuccess = document.getElementById('password-success');
+
+    var ACCOUNT_TYPES = {
+      0: 'Gratis',
+      1: 'Pro',
+      2: 'Admin'
+    };
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      var d = new Date(dateStr);
+      return d.toLocaleDateString('es-CL', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
+    function formatNumber(n) {
+      return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Load account info
+    async function loadAccountInfo() {
+      var user = await window.getCurrentUser();
+      if (!user) return;
+
+      accountEmail.textContent = user.email;
+      accountCreated.textContent = formatDate(user.created_at);
+
+      // Account type comes from user metadata or defaults to 0 (Free)
+      var accountTypeNum = (user.user_metadata && user.user_metadata.account_type != null)
+        ? user.user_metadata.account_type
+        : 0;
+      var typeLabel = ACCOUNT_TYPES[accountTypeNum] || 'Gratis';
+      var typeBadgeClass = 'account-type-badge';
+      if (accountTypeNum === 1) typeBadgeClass += ' badge-pro';
+      if (accountTypeNum === 2) typeBadgeClass += ' badge-admin';
+      accountType.innerHTML = '<span class="' + typeBadgeClass + '">' + escapeHtml(typeLabel) + '</span>';
+    }
+
+    // Load translation history
+    async function loadHistory() {
+      historyLoading.hidden = false;
+      historyList.hidden = true;
+      historyEmpty.hidden = true;
+      historyError.hidden = true;
+
+      try {
+        var headers = await window.getAuthHeaders();
+        var res = await fetch(API_URL + '/history', { headers: headers });
+
+        if (!res.ok) {
+          throw new Error('Error al cargar historial');
+        }
+
+        var data = await res.json();
+        var items = data.history || data || [];
+
+        historyLoading.hidden = true;
+
+        if (!Array.isArray(items) || items.length === 0) {
+          historyEmpty.hidden = false;
+          return;
+        }
+
+        var html = '<div class="history-table-wrap"><table class="history-table">';
+        html += '<thead><tr><th>Fecha</th><th>Archivos</th><th>Idioma</th><th>Costo</th></tr></thead>';
+        html += '<tbody>';
+
+        for (var i = 0; i < items.length; i++) {
+          var item = items[i];
+          html += '<tr>';
+          html += '<td>' + escapeHtml(formatDate(item.created_at || item.date)) + '</td>';
+          html += '<td>' + (item.files_count || item.num_files || '—') + '</td>';
+          html += '<td>' + escapeHtml(item.language || item.target_language || '—') + '</td>';
+          html += '<td>$' + formatNumber(item.cost_clp || item.cost || 0) + ' CLP</td>';
+          html += '</tr>';
+        }
+
+        html += '</tbody></table></div>';
+        historyList.innerHTML = html;
+        historyList.hidden = false;
+
+      } catch (err) {
+        historyLoading.hidden = true;
+        historyError.textContent = err.message || 'Error al cargar historial';
+        historyError.hidden = false;
+      }
+    }
+
+    // Change password
+    passwordForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      passwordError.hidden = true;
+      passwordSuccess.hidden = true;
+
+      var newPass = newPasswordInput.value;
+      var confirmPass = confirmNewPasswordInput.value;
+
+      if (!newPass || !confirmPass) {
+        passwordError.textContent = 'Completa ambos campos';
+        passwordError.hidden = false;
+        return;
+      }
+
+      if (newPass.length < 6) {
+        passwordError.textContent = 'La contraseña debe tener al menos 6 caracteres';
+        passwordError.hidden = false;
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        passwordError.textContent = 'Las contraseñas no coinciden';
+        passwordError.hidden = false;
+        return;
+      }
+
+      changePasswordBtn.disabled = true;
+      changePasswordBtn.textContent = 'Cambiando...';
+
+      try {
+        var result = await window.supabaseClient.auth.updateUser({
+          password: newPass
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message || 'Error al cambiar contraseña');
+        }
+
+        passwordSuccess.textContent = 'Contraseña actualizada correctamente';
+        passwordSuccess.hidden = false;
+        newPasswordInput.value = '';
+        confirmNewPasswordInput.value = '';
+      } catch (err) {
+        passwordError.textContent = err.message || 'Error al cambiar contraseña';
+        passwordError.hidden = false;
+      } finally {
+        changePasswordBtn.disabled = false;
+        changePasswordBtn.textContent = 'Cambiar Contraseña';
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', function () {
+      window.signOut();
+    });
+
+    // Init
+    loadAccountInfo();
+    loadHistory();
+  </script>
+</body>
+</html>

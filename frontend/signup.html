@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crear Cuenta — TranslatePro</title>
+  <meta name="description" content="Crea tu cuenta en TranslatePro para empezar a traducir documentos.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="screen">
+    <div class="container">
+      <div class="card auth-card">
+        <a href="/" class="auth-back-link">← Volver al inicio</a>
+        <h1>📄 TranslatePro</h1>
+        <p class="subtitle">Crea tu cuenta</p>
+        <form id="signup-form" onsubmit="return false;">
+          <label for="email-input">Correo electrónico</label>
+          <input type="email" id="email-input" autocomplete="email" required>
+          <label for="password-input">Contraseña</label>
+          <input type="password" id="password-input" autocomplete="new-password" required>
+          <label for="confirm-password-input">Confirmar contraseña</label>
+          <input type="password" id="confirm-password-input" autocomplete="new-password" required>
+          <button type="submit" id="signup-btn">Crear Cuenta</button>
+        </form>
+        <div id="signup-error" class="error-msg" hidden></div>
+        <div id="signup-success" class="success-msg" hidden></div>
+        <p class="auth-link">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    // If already logged in, redirect
+    window.supabaseClient.auth.getSession().then(function (result) {
+      if (result.data.session) {
+        window.location.href = '/app';
+      }
+    });
+
+    var emailInput = document.getElementById('email-input');
+    var passwordInput = document.getElementById('password-input');
+    var confirmPasswordInput = document.getElementById('confirm-password-input');
+    var signupBtn = document.getElementById('signup-btn');
+    var signupError = document.getElementById('signup-error');
+    var signupSuccess = document.getElementById('signup-success');
+    var signupForm = document.getElementById('signup-form');
+
+    function showError(el, message) {
+      el.textContent = message;
+      el.hidden = false;
+    }
+
+    signupForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      signupError.hidden = true;
+      signupSuccess.hidden = true;
+
+      var email = emailInput.value.trim();
+      var password = passwordInput.value;
+      var confirmPassword = confirmPasswordInput.value;
+
+      if (!email || !password || !confirmPassword) {
+        showError(signupError, 'Completa todos los campos');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError(signupError, 'La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showError(signupError, 'Las contraseñas no coinciden');
+        return;
+      }
+
+      signupBtn.disabled = true;
+      signupBtn.textContent = 'Creando cuenta...';
+
+      try {
+        var result = await window.supabaseClient.auth.signUp({
+          email: email,
+          password: password
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message || 'Error al crear cuenta');
+        }
+
+        // If session is returned, user is auto-logged in (no email verification)
+        if (result.data.session) {
+          window.location.href = '/app';
+        } else {
+          // Fallback: show success and let them log in
+          signupSuccess.textContent = 'Cuenta creada. Redirigiendo...';
+          signupSuccess.hidden = false;
+          setTimeout(function () {
+            window.location.href = '/app';
+          }, 1500);
+        }
+      } catch (err) {
+        showError(signupError, err.message || 'Error al crear cuenta');
+      } finally {
+        signupBtn.disabled = false;
+        signupBtn.textContent = 'Crear Cuenta';
+      }
+    });
+  </script>
+</body>
+</html>

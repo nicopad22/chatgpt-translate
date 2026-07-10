@@ -1,23 +1,14 @@
 // ===== Config =====
-const API_URL = 'https://translate-api-351640193452.us-central1.run.app'; // Set after first Cloud Run deploy
+var API_URL = 'https://translate-api-351640193452.us-central1.run.app';
 
 // ===== State =====
-var token = localStorage.getItem('token') || '';
-var username = localStorage.getItem('username') || '';
 var selectedFiles = [];
 var currentJobId = null;
 var pollInterval = null;
 
 // ===== DOM refs =====
-var loginScreen = document.getElementById('login-screen');
 var uploadScreen = document.getElementById('upload-screen');
 var resultsScreen = document.getElementById('results-screen');
-
-var loginForm = document.getElementById('login-form');
-var usernameInput = document.getElementById('username-input');
-var passwordInput = document.getElementById('password-input');
-var loginBtn = document.getElementById('login-btn');
-var loginError = document.getElementById('login-error');
 
 var headerUsername = document.getElementById('header-username');
 var headerUsername2 = document.getElementById('header-username-2');
@@ -41,79 +32,22 @@ var newTranslationBtn = document.getElementById('new-translation-btn');
 
 // ===== Screen Management =====
 function showScreen(screenId) {
-  loginScreen.hidden = true;
   uploadScreen.hidden = true;
   resultsScreen.hidden = true;
   document.getElementById(screenId).hidden = false;
-
-  if (screenId === 'upload-screen' || screenId === 'results-screen') {
-    headerUsername.textContent = username;
-    headerUsername2.textContent = username;
-  }
 }
 
-// ===== Auth =====
-function getAuthHeaders() {
-  return { 'Authorization': 'Bearer ' + token };
-}
-
-async function login() {
-  loginError.hidden = true;
-  var user = usernameInput.value.trim();
-  var pass = passwordInput.value;
-
-  if (!user || !pass) {
-    showError(loginError, 'Ingresa usuario y contraseña');
-    return;
-  }
-
-  loginBtn.disabled = true;
-  loginBtn.textContent = 'Entrando...';
-
-  try {
-    var form = new FormData();
-    form.append('username', user);
-    form.append('password', pass);
-
-    var res = await fetch(API_URL + '/auth/login', { method: 'POST', body: form });
-
-    if (!res.ok) {
-      var data = await res.json().catch(function () { return {}; });
-      throw new Error(data.detail || 'Credenciales incorrectas');
-    }
-
-    var data = await res.json();
-    token = data.access_token || data.token;
-    username = user;
-    localStorage.setItem('token', token);
-    localStorage.setItem('username', username);
-
-    usernameInput.value = '';
-    passwordInput.value = '';
-    showScreen('upload-screen');
-  } catch (err) {
-    showError(loginError, err.message || 'Error al iniciar sesión');
-  } finally {
-    loginBtn.disabled = false;
-    loginBtn.textContent = 'Entrar';
-  }
-}
-
+// ===== Auth (delegated to Supabase) =====
 function logout() {
-  token = '';
-  username = '';
   selectedFiles = [];
   currentJobId = null;
   if (pollInterval) clearInterval(pollInterval);
-  localStorage.removeItem('token');
-  localStorage.removeItem('username');
-  showScreen('login-screen');
+  window.signOut();
 }
 
 function handleUnauthorized(res) {
   if (res.status === 401) {
-    logout();
-    showError(loginError, 'Sesión expirada. Inicia sesión de nuevo.');
+    window.signOut();
     return true;
   }
   return false;
@@ -224,9 +158,10 @@ async function startTranslation() {
     }
     form.append('language', languageSelect.value);
 
+    var authHeaders = await window.getAuthHeaders();
     var res = await fetch(API_URL + '/jobs', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: authHeaders,
       body: form
     });
 
@@ -265,8 +200,9 @@ function pollStatus(jobId) {
 
   pollInterval = setInterval(async function () {
     try {
+      var authHeaders = await window.getAuthHeaders();
       var res = await fetch(API_URL + '/jobs/' + jobId, {
-        headers: getAuthHeaders()
+        headers: authHeaders
       });
 
       if (handleUnauthorized(res)) {
@@ -368,8 +304,9 @@ function showResults(data) {
 
 async function downloadFile(jobId, filename) {
   try {
+    var authHeaders = await window.getAuthHeaders();
     var res = await fetch(API_URL + '/jobs/' + jobId + '/download/' + encodeURIComponent(filename), {
-      headers: getAuthHeaders()
+      headers: authHeaders
     });
 
     if (handleUnauthorized(res)) return;
@@ -440,21 +377,18 @@ function showError(el, message) {
 }
 
 // ===== Event Listeners =====
-loginForm.addEventListener('submit', function (e) {
-  e.preventDefault();
-  login();
-});
-
 logoutBtn.addEventListener('click', logout);
 logoutBtn2.addEventListener('click', logout);
 translateBtn.addEventListener('click', startTranslation);
 newTranslationBtn.addEventListener('click', goBackToUpload);
 
 // ===== Init =====
-(function init() {
-  if (token && username) {
-    showScreen('upload-screen');
-  } else {
-    showScreen('login-screen');
+(async function init() {
+  // Auth is handled by auth-guard.js — just populate the username display
+  var user = await window.getCurrentUser();
+  if (user) {
+    headerUsername.textContent = user.email;
+    headerUsername2.textContent = user.email;
   }
+  // Upload screen is already visible (no hidden attribute)
 })();
